@@ -1,0 +1,5 @@
+# Editior settings
+.vscode
+
+# Cache files
+__pycache__
