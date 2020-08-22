@@ -1,9 +1,12 @@
 import socket
 import threading
+import ClientList
+import random
 
 socket.setdefaulttimeout(5)
 DISCONNECT = '/disconnect'
-CONN_MESSAGE = f'Connected to server. To disconnect type: {DISCONNECT}'
+DISSCONNECT_MESSAGE = f'To disconnect type: {DISCONNECT}'
+client_list = ClientList.ClientList()
 
 def accept_connection(sock: socket):
     """
@@ -22,8 +25,11 @@ def accept_connection(sock: socket):
         conn, addr = sock.accept()
     except socket.timeout:
         return (None, None)
-    print('Connection made from', addr)
-    conn.sendall(CONN_MESSAGE.encode())
+    # TODO: The name and chat room could be determined in the protocol
+    client_list.addToList(conn,
+                          "User" + str(random.randint(0, 1000)),
+                          "General")
+    conn.sendall(DISSCONNECT_MESSAGE.encode())
     return (conn, addr)
 
 
@@ -40,21 +46,47 @@ def handle_client(conn: socket, addr: tuple):
     Returns:
         None
     """
-    conn.sendall(CONN_MESSAGE.encode())
     print(f'[NEW CONNECTION] {addr} has connected')
 
     connected = True
     while connected:
         try:
             msg = conn.recv(1024).decode()
+
+            current_chat_room = client_list.getConnRoom(conn)
+            send_list = client_list.connectionsInRoom(current_chat_room)
+            send_list.remove(conn)
+            for c in send_list:
+                c.sendall(f'{client_list.getName(conn)}: {msg}'.encode())
+            # Note that the disconnect message is sent before actually
+            # disconnection. This is just a handy way to notify all
+            # other users in a room that someone has left
             if msg == DISCONNECT:
                 connected = False
-
-            print(f'{addr} {msg}')
+                print(f'[DISCONNECTION] {addr} has disconnected')
+                # Note minus two as currnet thread is yet to close
+                print(f'[CONNECTIONS] There are {threading.activeCount() - 2}'
+                      ' connections')
+                client_list.removeFromList(conn)
+                conn.close()
         except socket.timeout:
             # Ignore timeouts
             pass
 
+
+def send_help():
+    """
+    Returns the help message that tells the client how to use this
+    chat room.
+
+    Returns:
+        (str): The help message
+    """
+    help_message = ('Welcome to ChatRooms. The following commands'
+                    'are currently supported:\n')
+    help_message += DISSCONNECT_MESSAGE
+
+    return help_message
 
 # Starts the server. Listens on the socket then awaits connections
 def main(addr: tuple):
@@ -70,7 +102,8 @@ def main(addr: tuple):
                 thread = threading.Thread(target=handle_client,
                                           args=(conn, addr))
                 thread.start()
-                print(f'[CONNECTIONS] There are {threading.activeCount() -1}'
+                # Minus one to ignore main thread
+                print(f'[CONNECTIONS] There are {threading.activeCount() - 1}'
                       ' connections')
     except KeyboardInterrupt:
         print('[EXITING] Keyboard interrupt detected')
