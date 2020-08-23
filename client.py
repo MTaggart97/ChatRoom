@@ -1,6 +1,5 @@
 import socket
 import threading
-from threading import active_count
 
 host = 'localhost'
 port = 5000
@@ -10,9 +9,6 @@ DISCONNECT = '/disconnect'
 # Connect to the server
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.connect(addr)
-# Server sends initial message describing the chat room
-# data = s.recv(1024)
-# print(data.decode())
 
 
 def handle_send():
