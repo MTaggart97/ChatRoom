@@ -100,3 +100,21 @@ class ClientList:
             if entry['Connection'] == conn:
                 return entry['Name']
         return None
+
+    def updateChatRoom(self, conn: socket, chat_room: str):
+        """
+        Given a connection, it will change its chat room
+
+        Parameters:
+            self (ClientList): This instance
+            conn (socket): The connection to update
+            chat_room (str): The chat room to change to
+
+        Returns:
+            (boolean): True if client has left the room
+        """
+        for entry in self.client_list:
+            if entry['Connection'] == conn:
+                entry['Room'] = chat_room
+                return True
+        return False
