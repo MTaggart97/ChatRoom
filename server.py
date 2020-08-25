@@ -88,6 +88,10 @@ def handle_client(conn: socket, addr: tuple):
         except socket.timeout:
             # Ignore timeouts
             pass
+        except ConnectionResetError:
+            # This error can be thrown when the client disconnects
+            connected = False
+            disconnect(conn)
 
 
 def sendRoomDetails(conn: socket):
