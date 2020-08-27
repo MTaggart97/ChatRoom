@@ -5,7 +5,7 @@ from ChatRoomHelpers import MessageProtocol as mp
 import re
 from tabulate import tabulate
 
-socket.setdefaulttimeout(20)
+socket.setdefaulttimeout(5)
 
 DISCONNECT = '/disconnect'
 DISSCONNECT_MESSAGE = f'{DISCONNECT} - To disconnect from server'
@@ -23,11 +23,13 @@ ROOM_DETAILS_MESSGAE = f'{ROOM_DETAILS} - To get a list of available rooms'
 client_list = ClientList()
 DEFAULT_ROOM = "General"
 NAME = "SERVER"
+MAX_RETIRES = 5
 
 def accept_connection(sock: socket):
     """
-    Accepts a connection given a socket object. If the connection
-    times out, (None, None) is returned.
+    Accepts a connection given a socket object. If the initial connection
+    times out, (None, None) is returned. If the connection to get the clients
+    name times out after MAX_RETIRES, then the connection is aborted.
 
     Parameters:
         sock (socket): The socket to connect to
@@ -41,19 +43,25 @@ def accept_connection(sock: socket):
         conn, addr = sock.accept()
     except socket.timeout:
         return (None, None)
-
-    try:
-        client_name = mp.recv_msg_protocol(conn)
-        client_list.addToList(conn,
-                              client_name,
-                              DEFAULT_ROOM)
-        send_help(conn)
-        return (conn, addr)
-    except socket.timeout:
-        # If the user takes too long to respond with a name, close connection
-        print(f"[CLOSING] {addr} took too long to respond")
-        conn.close()
-        return (None, None)
+    retries = 0
+    while True:
+        try:
+            client_name = mp.recv_msg_protocol(conn)
+            client_list.addToList(conn,
+                                  client_name,
+                                  DEFAULT_ROOM)
+            send_help(conn)
+            return (conn, addr)
+        except socket.timeout:
+            if retries < MAX_RETIRES:
+                retries += 1
+                print('Retrying...')
+            else:
+                # If the user takes too long to respond with a name
+                # close the connection
+                print(f"[CLOSING] {addr} took too long to respond")
+                conn.close()
+                return (None, None)
 
 
 def handle_client(conn: socket, addr: tuple):
@@ -95,12 +103,15 @@ def handle_client(conn: socket, addr: tuple):
                 sendRoomDetails(conn)
             else:
                 sendMsg(conn, msg)
-
         except socket.timeout:
             # Ignore timeouts
             pass
         except ConnectionResetError:
             # This error can be thrown when the client disconnects
+            connected = False
+            disconnect(conn)
+        except OSError:
+            # Can happen if server shutsdown connction
             connected = False
             disconnect(conn)
 
@@ -143,7 +154,7 @@ def disconnect(conn: socket):
     Parameters:
         conn (socket): Connection to close
     """
-    print(f'[DISCONNECTION] {addr} has disconnected')
+    print(f'[DISCONNECTION] {client_list.getName(conn)} has disconnected')
     # Note minus two as currnet thread is yet to close
     print(f'[CONNECTIONS] There are {threading.activeCount() - 2}'
           ' connections')
@@ -210,9 +221,28 @@ def leaveRoom(conn: socket):
 
 
 # Starts the server. Listens on the socket then awaits connections
-def main(addr: tuple):
+def main():
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.bind(addr)
+    # Get host name on local network
+    host = socket.gethostbyname(socket.gethostname())
+    port = 5000     # Default port is 5050
+    addr = (host, port)
+    success = False
+    while not success:
+        try:
+            port_str = input(f'Enter the port to listen on ({port}):\n')
+            if not len(port_str) == 0:
+                port = int(port_str)
+            addr = (host, port)
+            sock.bind(addr)
+            success = True
+        except ValueError:
+            print('Please enter a number.')
+        except OSError:
+            print(f'{port} is already in use. Choose another')
+        except KeyboardInterrupt:
+            print('[EXITING] Keyboard interrupt detected')
+            exit()
     sock.listen()
     print(f'[STARTING] Server has started and is listening on {addr}')
     try:
@@ -229,12 +259,12 @@ def main(addr: tuple):
     except KeyboardInterrupt:
         print('[EXITING] Keyboard interrupt detected')
     finally:
+        # Close all connections before closing socket
+        for c in client_list.connections():
+            c.shutdown(socket.SHUT_RDWR)
+            c.close()
         sock.close()
 
 
 if __name__ == '__main__':
-    host = 'localhost'
-    port = 5000
-    addr = (host, port)
-
-    main(addr)
+    main()
