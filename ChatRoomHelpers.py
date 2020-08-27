@@ -1,5 +1,8 @@
 from socket import socket
 import json
+from tkinter import BOTH, X, LEFT
+from tkinter.constants import END
+from tkinter.ttk import Frame, Label, Entry, Button
 
 class ClientList:
     """
@@ -214,3 +217,99 @@ class MessageProtocol:
         except json.decoder.JSONDecodeError:
             # Malformed header, do nothing
             return None
+
+class ClientSetUp(Frame):
+    """
+    Dialog box that presents 3 inputs to the user:
+        Username
+        Server IP
+        Port
+
+    Extends the Frame class in tkinter.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.name = ''
+        self.ip = ''
+        self.port = ''
+        self.initUI()
+
+    def initUI(self):
+        """
+        Initialises the dialog box. The box will contain fields for the
+        username, server ip and server port. A button is used to submit
+        the data.
+        """
+        self.master.title("Connection Details")
+        self.pack(fill=BOTH, expand=True)
+        # Prepare the username field
+        frame1 = Frame(self)
+        frame1.pack(fill=X)
+
+        lbl1 = Label(frame1, text="Username", width=14)
+        lbl1.pack(side=LEFT, padx=5, pady=10)
+
+        self.entry1 = Entry(frame1, textvariable=self.name)
+        self.entry1.pack(fill=X, padx=5, expand=True)
+        # Prepare the server address field
+        frame2 = Frame(self)
+        frame2.pack(fill=X)
+
+        lbl2 = Label(frame2, text="Server Address", width=14)
+        lbl2.pack(side=LEFT, padx=5, pady=10)
+
+        self.entry2 = Entry(frame2, textvariable=self.ip)
+        self.entry2.pack(fill=X, padx=5, expand=True)
+        # Prepare the server port field
+        frame3 = Frame(self)
+        frame3.pack(fill=X)
+
+        lbl3 = Label(frame3, text="Server Port", width=14)
+        lbl3.pack(side=LEFT, padx=5, pady=10)
+
+        self.entry3 = Entry(frame3, textvariable=self.port)
+        self.entry3.pack(fill=X, padx=5, expand=True)
+
+        frame4 = Frame(self)
+        frame4.pack(fill=X)
+
+        # Command tells the form what to do when the button is clicked
+        btn = Button(frame4, text="Submit", command=self.onSubmit)
+        btn.pack(padx=5, pady=10)
+
+    def onSubmit(self):
+        """
+        When clicked, the user input is stored in the instance variables
+        and the boxes are cleared. The widget is then destroyed.
+        """
+        self.name = self.entry1.get()
+        self.ip = self.entry2.get()
+        self.port = self.entry3.get()
+
+        self.entry1.delete(0, END)
+        self.entry2.delete(0, END)
+        self.entry3.delete(0, END)
+        self.quit()
+
+    def retry(self, name='', ip='', port=''):
+        """
+        Used if the user enters incorrect data. It will repopulate
+        the fields where the data was correct. The mainloop is started
+        once the fields are populated.
+
+        Parameters:
+            name (str): Name of client
+            ip (str): IP of server
+            port (str): Port of server
+        """
+        self.entry1.insert(0, name)
+        self.entry2.insert(0, ip)
+        self.entry3.insert(0, port)
+
+        self.mainloop()
+        self.quit()
+
+    def on_close(self):
+        self.destroy()
+        exit()

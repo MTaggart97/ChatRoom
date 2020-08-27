@@ -5,7 +5,7 @@ import threading
 import tkinter as tk
 from tkinter import messagebox
 from tkinter import simpledialog
-from ChatRoomHelpers import MessageProtocol as mp
+from ChatRoomHelpers import ClientSetUp, MessageProtocol as mp
 
 host = socket.gethostbyname(socket.gethostname())
 port = 5000
@@ -124,13 +124,32 @@ def handle_recv():
 
 
 def main():
-    s.connect(addr)
+    connected = False
+    dialog = ClientSetUp()
+    window.protocol("WM_DELETE_WINDOW", dialog.on_close)
+    window.mainloop()
+    NAME, ip, port = (dialog.name, dialog.ip, dialog.port)
+    while not connected:
+        try:
+            port = int(port)
+            addr = (ip, port)
+            s.connect(addr)
+            connected = True
+        except ConnectionRefusedError:
+            dialog.retry(name=NAME)
+            NAME, ip, port = (dialog.name, dialog.ip, dialog.port)
+        except ValueError:
+            dialog.retry(name=NAME, ip=ip)
+            NAME, ip, port = (dialog.name, dialog.ip, dialog.port)
+        except Exception:
+            # Assume all other exceptions are because of failed connection
+            dialog.retry(name=NAME)
+            NAME, ip, port = (dialog.name, dialog.ip, dialog.port)
+    dialog.destroy()
+
     thread_recv = threading.Thread(target=handle_recv)
     thread_recv.start()
     setUpWindow()
-
-    NAME = simpledialog.askstring("Input", "Please enter your user name",
-                                  parent=window)
 
     if not NAME:
         # If name was not entered, create a random name
