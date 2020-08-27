@@ -1,11 +1,11 @@
 import socket
 import threading
 from ChatRoomHelpers import ClientList
-import random
+from ChatRoomHelpers import MessageProtocol as mp
 import re
 from tabulate import tabulate
 
-socket.setdefaulttimeout(5)
+socket.setdefaulttimeout(20)
 
 DISCONNECT = '/disconnect'
 DISSCONNECT_MESSAGE = f'{DISCONNECT} - To disconnect from server'
@@ -22,6 +22,7 @@ ROOM_DETAILS_MESSGAE = f'{ROOM_DETAILS} - To get a list of available rooms'
 
 client_list = ClientList()
 DEFAULT_ROOM = "General"
+NAME = "SERVER"
 
 def accept_connection(sock: socket):
     """
@@ -40,12 +41,19 @@ def accept_connection(sock: socket):
         conn, addr = sock.accept()
     except socket.timeout:
         return (None, None)
-    # TODO: The name and chat room could be determined in the protocol
-    client_list.addToList(conn,
-                          "User" + str(random.randint(0, 1000)),
-                          DEFAULT_ROOM)
-    send_help(conn)
-    return (conn, addr)
+
+    try:
+        client_name = mp.recv_msg_protocol(conn)
+        client_list.addToList(conn,
+                              client_name,
+                              DEFAULT_ROOM)
+        send_help(conn)
+        return (conn, addr)
+    except socket.timeout:
+        # If the user takes too long to respond with a name, close connection
+        print(f"[CLOSING] {addr} took too long to respond")
+        conn.close()
+        return (None, None)
 
 
 def handle_client(conn: socket, addr: tuple):
@@ -67,10 +75,13 @@ def handle_client(conn: socket, addr: tuple):
     connected = True
     while connected:
         try:
-            msg = conn.recv(1024).decode()
+            msg = mp.recv_msg_protocol(conn)
 
             # If msg is not a special message then send to all.
             # Otherwise handle request based on input
+            if not msg:
+                # Do nothing if header was invalid
+                pass
             if msg == HELP:
                 send_help(conn)
             elif msg == DISCONNECT:
@@ -103,7 +114,7 @@ def sendRoomDetails(conn: socket):
     """
     data = tabulate([list(e.values())[1:] for e in client_list.getList()],
                     headers=client_list.getList()[0].keys())
-    conn.sendall(data.encode())
+    mp.send_msg_protocol(conn, data, NAME)
 
 
 def sendMsg(conn: socket, msg: str):
@@ -120,7 +131,9 @@ def sendMsg(conn: socket, msg: str):
     send_list.remove(conn)
     if send_list:
         for c in send_list:
-            c.sendall(f'{client_list.getName(conn)}: {msg}'.encode())
+            mp.send_msg_protocol(c, f'{client_list.getName(conn)}: {msg}',
+                                 NAME)
+
 
 def disconnect(conn: socket):
     """
@@ -155,7 +168,7 @@ def send_help(conn: socket):
     help_message += LEAVE_ROOM_MESSAGE + '\n'
     help_message += ROOM_DETAILS_MESSGAE + '\n'
 
-    conn.sendall(help_message.encode())
+    mp.send_msg_protocol(conn, help_message, NAME)
 
 
 def updateRoom(conn: socket, chat_room: str):
@@ -178,7 +191,7 @@ def updateRoom(conn: socket, chat_room: str):
         sendMsg(conn, f'{client_list.getName(conn)} has entered the chat')
     else:
         msg = f'"{new_room}" is not a valid name.'
-        conn.sendall(msg.encode())
+        mp.send_msg_protocol(conn, msg, NAME)
 
 
 def leaveRoom(conn: socket):
