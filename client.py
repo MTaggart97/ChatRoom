@@ -1,17 +1,20 @@
 from queue import Queue
+import random
 import socket
 import threading
 import tkinter as tk
 from tkinter import messagebox
+from tkinter import simpledialog
+from ChatRoomHelpers import MessageProtocol as mp
 
 host = 'localhost'
 port = 5000
 addr = (host, port)
-DISCONNECT = '/disconnect'
+DISCONNECT = '/disconnect'  # Disconnect message
+NAME = ''                   # Name of this client
 
-# Connect to the server
+# Setup connection to the server
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s.connect(addr)
 
 msgRcvQueue = Queue()   # FIFO Queue
 window = tk.Tk()        # Main window
@@ -60,29 +63,45 @@ def handle_send(input_box: tk.Text):
     into the list of messages on the client side. This is done so that
     the message doesn't need to be sent to the server and back again.
 
+    If the server cannot be contacted, a message is displayed to the
+    user to restart.
+
     Parameter:
         input_box (tk.Text): Text box containing the message
     """
     msg = input_box.get("1.0", tk.END).rstrip()
     input_box.delete("1.0", tk.END)
-    s.sendall(msg.encode())
-    # Create a label with the clients message and add it to the frame
-    label = tk.Label(text='You: ' + msg, master=frame)
-    label.pack()
-    if msg == DISCONNECT:
-        s.close()
-        window.destroy()
+    try:
+        mp.send_msg_protocol(s, msg, NAME)
+        # Create a label with the clients message and add it to the frame
+        label = tk.Label(text='You: ' + msg, master=frame)
+        label.pack()
+        if msg == DISCONNECT:
+            window.destroy()
+            s.close()
+    except ConnectionAbortedError:
+        msgRcvQueue.put('Lost connection with server, please restart')
+    except OSError:
+        msgRcvQueue.put('Lost connection with server, please restart')
+
 
 def on_close():
     """
     Funciton to handle when the user closes the window instead of typing
     the DISCONNECT message. First notifies the server that you are
-    disconnecting, then closes the socket and window.
+    disconnecting, then closes the socket and window. If the socket was already
+    closed (say by the server), then simply destroy the window.
     """
     if messagebox.askokcancel("Quit", "Do you want to quit?"):
-        s.sendall(DISCONNECT.encode())
-        s.close()
-        window.destroy()
+        try:
+            mp.send_msg_protocol(s, DISCONNECT, NAME)
+            s.close()
+        except ConnectionAbortedError:
+            pass
+        except OSError:
+            pass
+        finally:
+            window.destroy()
 
 
 def handle_recv():
@@ -94,8 +113,10 @@ def handle_recv():
     """
     while True:
         try:
-            data = s.recv(1024)
-            msgRcvQueue.put(data.decode())
+            data = mp.recv_msg_protocol(s)
+            # Ignore if data is empty or the header was invalid
+            if data:
+                msgRcvQueue.put(data)
         except ConnectionAbortedError:
             break
         except OSError:
@@ -103,9 +124,27 @@ def handle_recv():
 
 
 def main():
+    s.connect(addr)
     thread_recv = threading.Thread(target=handle_recv)
     thread_recv.start()
     setUpWindow()
+
+    NAME = simpledialog.askstring("Input", "Please enter your user name",
+                                  parent=window)
+
+    if not NAME:
+        # If name was not entered, create a random name
+        NAME = "User" + str(random.randint(0, 1000))
+
+    # Send the first message that initialises the connection.
+    # This simply involves setting the name of this client on the server.
+    try:
+        mp.send_msg_protocol(s, NAME, NAME)
+    except Exception:
+        # If this fails, the initialisation failed so client is not
+        # connected to server properly
+        msgRcvQueue.put('Connection not set up properlly, restart application')
+
     window.mainloop()
 
 
