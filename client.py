@@ -7,7 +7,7 @@ from tkinter import messagebox
 from tkinter import simpledialog
 from ChatRoomHelpers import MessageProtocol as mp
 
-host = 'localhost'
+host = socket.gethostbyname(socket.gethostname())
 port = 5000
 addr = (host, port)
 DISCONNECT = '/disconnect'  # Disconnect message

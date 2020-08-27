@@ -69,6 +69,21 @@ class ClientList:
                 connections.append(entry['Connection'])
         return connections
 
+    def connections(self):
+        """
+        Returns a list of all connections.
+
+        Parameters:
+            self (ClientList): This instance
+
+        Returns:
+            (list): List of all connections
+        """
+        connections = []
+        for entry in self.client_list:
+            connections.append(entry['Connection'])
+        return connections
+
     def getConnRoom(self, conn: socket):
         """
         Gets the current room that this connection is in.
