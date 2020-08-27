@@ -1,5 +1,6 @@
 from socket import socket
 import json
+import sys
 from tkinter import BOTH, X, LEFT
 from tkinter.constants import END
 from tkinter.ttk import Frame, Label, Entry, Button
@@ -312,4 +313,4 @@ class ClientSetUp(Frame):
 
     def on_close(self):
         self.destroy()
-        exit()
+        sys.exit()
