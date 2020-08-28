@@ -1,4 +1,5 @@
 import socket
+import sys
 import threading
 from ChatRoomHelpers import ClientList
 from ChatRoomHelpers import MessageProtocol as mp
@@ -161,6 +162,7 @@ def disconnect(conn: socket):
     leaveRoom(conn)
     client_list.removeFromList(conn)
     conn.close()
+    sys.exit()  # Exit the current thread
 
 
 def send_help(conn: socket):
