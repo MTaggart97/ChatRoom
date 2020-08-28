@@ -4,12 +4,9 @@ import socket
 import threading
 import tkinter as tk
 from tkinter import messagebox
-from tkinter import simpledialog
 from ChatRoomHelpers import ClientSetUp, MessageProtocol as mp
 
-host = socket.gethostbyname(socket.gethostname())
-port = 5000
-addr = (host, port)
+LABEL_WIDTH = 500           # Max width of labels
 DISCONNECT = '/disconnect'  # Disconnect message
 NAME = ''                   # Name of this client
 
@@ -18,7 +15,32 @@ s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 msgRcvQueue = Queue()   # FIFO Queue
 window = tk.Tk()        # Main window
-frame = tk.Frame()      # Frame containing history of messages
+
+# Set up scollable frame
+baseFrame = tk.Frame(window)
+canvas = tk.Canvas(baseFrame)
+frame = tk.Frame(canvas)  # Frame containing history of messages
+
+
+def onFrameConfig(canvas: tk.Canvas):
+    """
+    Executed when the frame gets larger (i.e. when a messge is sent). It will
+    first resize the scroll region. If the user was originally at the
+    bottom of the scroll, then they will stay ot the bottom. Otherwise, they
+    stay where they are.
+
+    Parameters:
+        canvas (Canvas): Canvas widget to configure
+    """
+    yView = canvas.yview()[1]
+    canvas.configure(scrollregion=canvas.bbox('all'))
+    if 1 == yView:
+        canvas.yview_moveto(1)
+
+
+def on_mouse_wheel(event, canvas: tk.Canvas):
+    canvas.yview_scroll(-1 * int((event.delta) / 120), 'units')
+
 
 def checkForMessages():
     """
@@ -27,8 +49,12 @@ def checkForMessages():
     removed once it is used.
     """
     if not msgRcvQueue.empty():
-        label = tk.Label(text=msgRcvQueue.get(), master=frame)
-        label.pack()
+        label = tk.Label(text=msgRcvQueue.get(),
+                         master=frame,
+                         justify='left',
+                         wraplength=LABEL_WIDTH,
+                         relief='raised')
+        label.pack(anchor='w')
     window.after(100, checkForMessages)
 
 def setUpWindow():
@@ -40,20 +66,53 @@ def setUpWindow():
     Parameters:
         window (tkinter): The window to display
     """
-    input_box = tk.Text()
-    button = tk.Button(text="Send")
+    myscrollbar = tk.Scrollbar(baseFrame, orient="vertical",
+                               command=canvas.yview)
+    canvas.configure(yscrollcommand=myscrollbar.set)
+    canvas.create_window((4, 4), window=frame, anchor="nw")
+    frame.bind('<Configure>',
+               lambda event, canvas=canvas: onFrameConfig(canvas))
+
+    canvas.bind_all('<MouseWheel>',
+                    lambda event, canvas=canvas:
+                        on_mouse_wheel(event, canvas))
+
+    input_box = tk.Text(master=window)
+    button = tk.Button(master=window, text="Send")
     # Using a lambda here so that the inputBox can be passed in as
     # and argument
     button.bind("<Button-1>",
                 lambda event, inputBox=input_box:
                     handle_send(inputBox))
 
-    frame.pack()
-    input_box.pack()
-    button.pack()
+    input_box.bind('<Shift-Return>',
+                   lambda event, inputBox=input_box:
+                       handle_shift_send(inputBox))
+
+    baseFrame.pack(fill='both')
+    myscrollbar.pack(side='right', fill='y')
+    canvas.pack(side='left', fill='both', expand=True)
+    input_box.pack(side='left', anchor='w')
+    button.pack(side='left', anchor='sw')
+
+    # Give the input box focus
+    input_box.focus()
 
     window.protocol("WM_DELETE_WINDOW", on_close)
     window.after(0, checkForMessages)
+
+
+def handle_shift_send(input_box: tk.Text):
+    """
+    Used when sending a message using shift return. Waits 100ms
+    before sending the message so that the return key is entered with
+    the message rather than after it is sent. If it is done after then
+    the cursor will be on line 2 when the user wants to type again.
+
+    Paramters:
+        input_box (tk.Text): Message box
+    """
+    input_box.after(100, handle_send, input_box)
 
 
 def handle_send(input_box: tk.Text):
@@ -74,8 +133,12 @@ def handle_send(input_box: tk.Text):
     try:
         mp.send_msg_protocol(s, msg, NAME)
         # Create a label with the clients message and add it to the frame
-        label = tk.Label(text='You: ' + msg, master=frame)
-        label.pack()
+        label = tk.Label(text='You:\n' + msg,
+                         master=frame,
+                         justify='left',
+                         wraplength=LABEL_WIDTH,
+                         relief='raised')
+        label.pack(anchor='w')
         if msg == DISCONNECT:
             window.destroy()
             s.close()

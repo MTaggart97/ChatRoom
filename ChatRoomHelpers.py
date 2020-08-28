@@ -279,6 +279,16 @@ class ClientSetUp(Frame):
         btn = Button(frame4, text="Submit", command=self.onSubmit)
         btn.pack(padx=5, pady=10)
 
+        # Give entry1 focus
+        self.entry1.focus()
+
+        # Set up what happens when Return is pressed
+        # All entries will move onto the next except port which will submit
+        # Note: These didn't work if they weren't lambdas (don't know why)
+        self.entry1.bind('<Return>', lambda event: self.entry2.focus())
+        self.entry2.bind('<Return>', lambda event: self.entry3.focus())
+        self.entry3.bind('<Return>', lambda event: self.onSubmit())
+
     def onSubmit(self):
         """
         When clicked, the user input is stored in the instance variables
