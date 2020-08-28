@@ -142,7 +142,7 @@ def sendMsg(conn: socket, msg: str):
     send_list.remove(conn)
     if send_list:
         for c in send_list:
-            mp.send_msg_protocol(c, f'{client_list.getName(conn)}: {msg}',
+            mp.send_msg_protocol(c, f'{client_list.getName(conn)}:\n {msg}',
                                  NAME)
 
 
@@ -172,7 +172,7 @@ def send_help(conn: socket):
         conn (socket): The connection to send the message to
     """
     help_message = ('Welcome to ChatRooms. The following commands'
-                    'are currently supported:\n')
+                    ' are currently supported:\n')
     help_message += HELP_MESSAGE + '\n'
     help_message += DISSCONNECT_MESSAGE + '\n'
     help_message += MOVE_ROOM_MESSAGE + '\n'
