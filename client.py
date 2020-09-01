@@ -3,8 +3,10 @@ import random
 import socket
 import threading
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import PhotoImage, messagebox
 from ChatRoomHelpers import ClientSetUp, MessageProtocol as mp
+from win10toast_persist import ToastNotifier
+from ChatRoomHelpers import resource_path
 
 LABEL_WIDTH = 500           # Max width of labels
 DISCONNECT = '/disconnect'  # Disconnect message
@@ -15,6 +17,7 @@ s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 msgRcvQueue = Queue()   # FIFO Queue
 window = tk.Tk()        # Main window
+notifier = ToastNotifier()
 
 # Set up scollable frame
 baseFrame = tk.Frame(window)
@@ -49,13 +52,28 @@ def checkForMessages():
     removed once it is used.
     """
     if not msgRcvQueue.empty():
-        label = tk.Label(text=msgRcvQueue.get(),
+        msg = msgRcvQueue.get()
+        label = tk.Label(text=msg,
                          master=frame,
                          justify='left',
                          wraplength=LABEL_WIDTH,
                          relief='raised')
         label.pack(anchor='w')
+        create_notification(msg)
     window.after(100, checkForMessages)
+
+def create_notification(msg: str):
+    """
+    Creates a notification that is placed in the Windows 10 Action Center.
+
+    Parmeters:
+        msg (str): Message to display
+    """
+    split_msg = msg.split(':')
+    notifier.show_toast(title=split_msg[0],
+                        msg=' '.join(split_msg[1:]),
+                        icon_path=resource_path('icon.ico'),
+                        duration=None)
 
 def setUpWindow():
     """
@@ -98,6 +116,10 @@ def setUpWindow():
     # Give the input box focus
     input_box.focus()
 
+    photo = PhotoImage(file=resource_path('icon.png'))
+    window.iconphoto(False, photo)
+
+    window.title("Chat Room")
     window.protocol("WM_DELETE_WINDOW", on_close)
     window.after(0, checkForMessages)
 

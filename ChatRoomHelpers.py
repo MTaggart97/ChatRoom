@@ -1,7 +1,8 @@
+import os
 from socket import socket
 import json
 import sys
-from tkinter import BOTH, X, LEFT
+from tkinter import BOTH, PhotoImage, X, LEFT
 from tkinter.constants import END
 from tkinter.ttk import Frame, Label, Entry, Button
 
@@ -163,7 +164,7 @@ class MessageProtocol:
         Errors:
             ValueError: If header lenght is too long
         """
-        header_dict = {'content-length': len(msg),
+        header_dict = {'content-length': len(msg.encode()),
                        'name': name}
         header = json.dumps(header_dict)
         if (len(header) >= 2**MessageProtocol.header_len):
@@ -289,6 +290,9 @@ class ClientSetUp(Frame):
         self.entry2.bind('<Return>', lambda event: self.entry3.focus())
         self.entry3.bind('<Return>', lambda event: self.onSubmit())
 
+        photo = PhotoImage(file=resource_path('icon.png'))
+        self.master.iconphoto(False, photo)
+
     def onSubmit(self):
         """
         When clicked, the user input is stored in the instance variables
@@ -324,3 +328,21 @@ class ClientSetUp(Frame):
     def on_close(self):
         self.destroy()
         sys.exit()
+
+def resource_path(relative_path: str):
+    """
+    Utility to get the absolute path of the file. Assumes file is in
+    current directory. Needed for when scirpts are converted into executables.
+
+    Parameters:
+        relative_path (str): Name of file to find
+
+    Returns:
+        (str): Absolute path of file in current directory
+    """
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, relative_path)
