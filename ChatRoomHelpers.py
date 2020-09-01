@@ -164,7 +164,7 @@ class MessageProtocol:
         Errors:
             ValueError: If header lenght is too long
         """
-        header_dict = {'content-length': len(msg),
+        header_dict = {'content-length': len(msg.encode()),
                        'name': name}
         header = json.dumps(header_dict)
         if (len(header) >= 2**MessageProtocol.header_len):
