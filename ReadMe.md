@@ -11,3 +11,9 @@ The `server.py` script contains the server process. When run, you will need to i
 ## Client
 
 The `client.py` script contains the client process. It uses a GUI created with tkinter. It will first ask the user for a username and the details of the server. The protocol it uses to send messages to the server uses fixed length headers. The header contains the length of the message and the username of the client. The main thread runs the GUI and sending of messages. While another thread waits to receive messages. These messages are then added to a global queue which gets polled by the main thread. If there's a message there, it will appear in the UI and then get removed from the queue.
+
+## Demo
+
+Short demo of server (at top) and two clients. Able to broadcast messages to users in same room as well as create new rooms. A list of other commands are shown but not demonstrated.
+
+![demo video](demo.gif)
